@@ -1,7 +1,7 @@
 import time
 from wavenet_model import WaveNetModel, ExpandingWaveNetModel
 from wavenet_training import *
-from torch.autograd import Variable
+
 import torch
 import numpy as np
 
@@ -20,7 +20,7 @@ print("scope: ", model.receptive_field)
 parameters = dict(model.named_parameters())
 param_map = {id(v): k for k, v in parameters.items()}
 
-test_input = Variable(torch.rand(1, 1, model.receptive_field + model.output_length)) * 2 - 1
+test_input = torch.rand(1, 1, model.receptive_field + model.output_length) * 2 - 1
 
 test_output_1 = model(test_input)
 print("test output 1: ", test_output_1)

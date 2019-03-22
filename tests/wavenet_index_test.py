@@ -2,7 +2,7 @@ from unittest import TestCase
 import time
 from wavenet_model import WaveNetModel
 #from wavenet_training import *
-from torch.autograd import Variable
+
 import torch
 import numpy as np
 
@@ -41,7 +41,7 @@ class TestWaveNetModel(TestCase):
         self.model.output_length = 8
         in_sig = torch.zeros(1, 1, self.model.receptive_field)
         in_sig[:,:,-3] = 1.
-        out_sig = self.model(Variable(in_sig))
+        out_sig = self.model(in_sig)
         assert False
         pass
 

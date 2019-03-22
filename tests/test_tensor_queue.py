@@ -4,7 +4,7 @@ import torch
 import torch.autograd
 from torch.nn._functions.padding import ConstantPad2d
 import torch.nn.functional as F
-from torch.autograd import Variable, gradcheck
+from torch.autograd import gradcheck
 
 from wavenet_training import DilatedQueue, ConstantPad1d
 
@@ -102,7 +102,8 @@ class Test_wav_files(TestCase):
 
 class Test_padding(TestCase):
     def test_1d(self):
-        x = Variable(torch.ones((2, 3, 4)), requires_grad=True)
+        x = torch.ones((2, 3, 4))
+        x.requires_grad=True
 
         pad = ConstantPad1d(5, dimension=0, pad_start=False)
 
@@ -133,7 +134,7 @@ class Test_padding(TestCase):
 
     def test_2d(self):
         pad = ConstantPad2d((5, 0, 0, 0))
-        x = Variable(torch.ones((2, 3, 4, 5)))
+        x = torch.ones((2, 3, 4, 5))
 
         res = pad.forward(x)
         print(res.size())

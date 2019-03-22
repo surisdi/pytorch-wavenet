@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Parameter
-from torch.autograd import Variable, Function
+from torch.autograd import Function
 import numpy as np
 
 
@@ -50,7 +50,7 @@ class DilatedQueue:
         self.data = data
         self.dtype = dtype
         if data == None:
-            self.data = Variable(dtype(num_channels, max_length).zero_())
+            self.data = dtype(num_channels, max_length).zero_()
 
     def enqueue(self, input):
         self.data[:, self.in_pos] = input
@@ -72,7 +72,7 @@ class DilatedQueue:
         return t
 
     def reset(self):
-        self.data = Variable(self.dtype(self.num_channels, self.max_length).zero_())
+        self.data = self.dtype(self.num_channels, self.max_length).zero_()
         self.in_pos = 0
         self.out_pos = 0
 

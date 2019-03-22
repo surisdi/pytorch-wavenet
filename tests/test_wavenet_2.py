@@ -1,7 +1,7 @@
 import time
 from wavenet_model import WaveNetModel
 from wavenet_training import *
-from torch.autograd import Variable
+
 import torch
 import numpy as np
 
@@ -13,7 +13,7 @@ model = WaveNetModel(layers=7,
                      classes=256,
                      output_length=8)
 
-# out = model.forward(Variable(torch.zeros((1, 1, 2048))))
+# out = model.forward(torch.zeros((1, 1, 2048)))
 # print(out)
 
 print("model: ", model)

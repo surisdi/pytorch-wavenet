@@ -2,7 +2,7 @@ import time
 from wavenet_model import WaveNetModel, ExpandingWaveNetModel
 from wavenet_modules import Conv1dExtendable
 from wavenet_training import *
-from torch.autograd import Variable
+
 import torch
 import numpy as np
 
@@ -43,7 +43,7 @@ class Net(nn.Module):
 
 model = Net()
 
-input = Variable(torch.rand(1, 1, 4) * 2 - 1)
+input = torch.rand(1, 1, 4) * 2 - 1
 output = model(input)
 print("output: ", output)
 
@@ -56,4 +56,4 @@ print("output 2: ", output2)
 
 diff = output - output2
 dot = torch.dot(diff, diff)
-print("mse: ", dot.data[0])
+print("mse: ", dot.item())

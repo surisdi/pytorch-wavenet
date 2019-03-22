@@ -1,7 +1,6 @@
 import time
 from wavenet_model import WaveNetModel
 from wavenet_training import *
-from torch.autograd import Variable
 import torch
 import numpy as np
 
@@ -19,7 +18,7 @@ print("scope: ", model.receptive_field)
 # print("parameter count", model.parameter_count())
 
 
-test_input = Variable(torch.rand(1, 1, 32))
+test_input = torch.rand(1, 1, 32)
 
 test_output_1 = model(test_input)
 print("test output 1: ", test_output_1)

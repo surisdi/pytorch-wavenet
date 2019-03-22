@@ -4,7 +4,7 @@ import torch.utils.data
 import time
 from datetime import datetime
 import torch.nn.functional as F
-from torch.autograd import Variable
+
 from model_logging import Logger
 from wavenet_modules import *
 
@@ -62,14 +62,14 @@ class WavenetTrainer:
             print("epoch", current_epoch)
             tic = time.time()
             for (x, target) in iter(self.dataloader):
-                x = Variable(x.type(self.dtype))
-                target = Variable(target.view(-1).type(self.ltype))
+                x = x.type(self.dtype)
+                target = target.view(-1).type(self.ltype)
 
                 output = self.model(x)
                 loss = F.cross_entropy(output.squeeze(), target.squeeze())
                 self.optimizer.zero_grad()
                 loss.backward()
-                loss = loss.data[0]
+                loss = loss.item()
 
                 if self.clip is not None:
                     torch.nn.utils.clip_grad_norm(self.model.parameters(), self.clip)
@@ -95,16 +95,16 @@ class WavenetTrainer:
         total_loss = 0
         accurate_classifications = 0
         for (x, target) in iter(self.dataloader):
-            x = Variable(x.type(self.dtype))
-            target = Variable(target.view(-1).type(self.ltype))
+            x = x.type(self.dtype)
+            target =target.view(-1).type(self.ltype)
 
             output = self.model(x)
             loss = F.cross_entropy(output.squeeze(), target.squeeze())
-            total_loss += loss.data[0]
+            total_loss += loss.item()
 
             predictions = torch.max(output, 1)[1].view(-1)
             correct_pred = torch.eq(target, predictions)
-            accurate_classifications += torch.sum(correct_pred).data[0]
+            accurate_classifications += torch.sum(correct_pred).item()
         # print("validate model with " + str(len(self.dataloader.dataset)) + " samples")
         # print("average loss: ", total_loss / len(self.dataloader))
         avg_loss = total_loss / len(self.dataloader)

@@ -25,10 +25,10 @@ model = WaveNetModel(layers=8,
 #model = load_latest_model_from('snapshots')
 #model = torch.load('snapshots/snapshot_2017-12-10_09-48-19')
 
-data = WavenetDataset(dataset_file='train_samples/saber/dataset.npz',
+data = WavenetDataset(dataset_file='/scratch/gobi1/didacsuris/data/multimodal_seung/piano/dataset_train.npz',
                       item_length=model.receptive_field + model.output_length - 1,
                       target_length=model.output_length,
-                      file_location='train_samples/saber',
+                      file_location='/scratch/gobi1/didacsuris/data/multimodal_seung/piano/train',
                       test_stride=20)
 
 # torch.save(model, 'untrained_model')
