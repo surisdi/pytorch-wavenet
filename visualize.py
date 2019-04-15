@@ -4,7 +4,6 @@ from graphviz import Digraph
 import torch
 
 
-
 def make_dot(var, params):
     """ Produces Graphviz representation of PyTorch autograd graph
 

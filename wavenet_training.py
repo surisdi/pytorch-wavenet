@@ -10,11 +10,11 @@ from wavenet_modules import *
 
 
 def print_last_loss(opt):
-    print("loss: ", opt.losses[-1])
+    print("loss: ", opt.losses[-1], flush=True)
 
 
 def print_last_validation_result(opt):
-    print("validation loss: ", opt.validation_results[-1])
+    print("validation loss: ", opt.validation_results[-1], flush=True)
 
 
 class WavenetTrainer:
@@ -52,16 +52,16 @@ class WavenetTrainer:
               epochs=10,
               continue_training_at_step=0):
         self.model.train()
-        self.dataloader = torch.utils.data.DataLoader(self.dataset,
-                                                      batch_size=batch_size,
-                                                      shuffle=True,
-                                                      num_workers=8,
-                                                      pin_memory=False)
+        self.dataloader = {k: torch.utils.data.DataLoader(self.dataset[k],
+                                                          batch_size=batch_size,
+                                                          shuffle=True,
+                                                          num_workers=0,
+                                                          pin_memory=False) for k in self.dataset.keys()}
         step = continue_training_at_step
         for current_epoch in range(epochs):
-            print("epoch", current_epoch)
+            print("epoch", current_epoch, flush=True)
             tic = time.time()
-            for (x, target) in iter(self.dataloader):
+            for (x, target) in self.dataloader['train']:
                 x = x.type(self.dtype)
                 target = target.view(-1).type(self.ltype)
 
@@ -75,41 +75,45 @@ class WavenetTrainer:
                     torch.nn.utils.clip_grad_norm(self.model.parameters(), self.clip)
                 self.optimizer.step()
                 step += 1
+                print(f'Step {step}', flush=True)
 
                 # time step duration:
                 if step == 100:
                     toc = time.time()
-                    print("one training step does take approximately " + str((toc - tic) * 0.01) + " seconds)")
+                    print("one training step does take approximately " + str((toc - tic) * 0.01) + " seconds", flush=True)
 
                 if step % self.snapshot_interval == 0:
                     if self.snapshot_path is None:
                         continue
                     time_string = time.strftime("%Y-%m-%d_%H-%M-%S", time.gmtime())
-                    torch.save(self.model, self.snapshot_path + '/' + self.snapshot_name + '_' + time_string)
+                    # torch.save(self.model, self.snapshot_path + '/' + self.snapshot_name + '_' + time_string + 'pth.tar')
+                    torch.save(self.model, self.snapshot_path + '/' + self.snapshot_name + '.pth.tar')
+                    print(f'Model saved in {self.snapshot_path}/{self.snapshot_name}.pth.tar')
 
                 self.logger.log(step, loss)
 
     def validate(self):
         self.model.eval()
-        self.dataset.train = False
+        # self.dataset.train = False
         total_loss = 0
         accurate_classifications = 0
-        for (x, target) in iter(self.dataloader):
-            x = x.type(self.dtype)
-            target =target.view(-1).type(self.ltype)
+        with torch.no_grad():
+            for i, (x, target) in enumerate(self.dataloader['valid']):
+                x = x.type(self.dtype)
+                target = target.view(-1).type(self.ltype)
 
-            output = self.model(x)
-            loss = F.cross_entropy(output.squeeze(), target.squeeze())
-            total_loss += loss.item()
+                output = self.model(x)
+                loss = F.cross_entropy(output.squeeze(), target.squeeze())
+                total_loss += loss.item()
 
-            predictions = torch.max(output, 1)[1].view(-1)
-            correct_pred = torch.eq(target, predictions)
-            accurate_classifications += torch.sum(correct_pred).item()
+                predictions = torch.max(output, 1)[1].view(-1)
+                correct_pred = torch.eq(target, predictions)
+                accurate_classifications += torch.sum(correct_pred).item()
         # print("validate model with " + str(len(self.dataloader.dataset)) + " samples")
         # print("average loss: ", total_loss / len(self.dataloader))
-        avg_loss = total_loss / len(self.dataloader)
-        avg_accuracy = accurate_classifications / (len(self.dataset)*self.dataset.target_length)
-        self.dataset.train = True
+        avg_loss = total_loss / len(self.dataloader['valid'])
+        avg_accuracy = accurate_classifications / (len(self.dataset['valid'])*self.dataset['valid'].target_length)
+        # self.dataset.train = True
         self.model.train()
         return avg_loss, avg_accuracy
 

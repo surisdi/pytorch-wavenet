@@ -35,10 +35,13 @@ class WaveNetModel(nn.Module):
                  classes=256,
                  output_length=32,
                  kernel_size=2,
+                 embedding_dim=32,
                  dtype=torch.FloatTensor,
-                 bias=False):
+                 bias=False, device='cpu'):
 
         super(WaveNetModel, self).__init__()
+
+        self.device = device
 
         self.layers = layers
         self.blocks = blocks
@@ -48,6 +51,7 @@ class WaveNetModel(nn.Module):
         self.classes = classes
         self.kernel_size = kernel_size
         self.dtype = dtype
+        self.embedding_dim = embedding_dim
 
         # build model
         receptive_field = 1
@@ -60,6 +64,8 @@ class WaveNetModel(nn.Module):
         self.gate_convs = nn.ModuleList()
         self.residual_convs = nn.ModuleList()
         self.skip_convs = nn.ModuleList()
+        self.gc_gates = nn.ModuleList()
+        self.gc_filters = nn.ModuleList()
 
         # 1x1 convolution to create channels
         self.start_conv = nn.Conv1d(in_channels=self.classes,
@@ -103,6 +109,22 @@ class WaveNetModel(nn.Module):
                                                  kernel_size=1,
                                                  bias=bias))
 
+                # 1x1 convolution for skip connection
+                self.skip_convs.append(nn.Conv1d(in_channels=dilation_channels,
+                                                 out_channels=skip_channels,
+                                                 kernel_size=1,
+                                                 bias=bias))
+
+                self.gc_gates.append(nn.Conv1d(in_channels=dilation_channels,
+                                                 out_channels=skip_channels,
+                                                 kernel_size=1,
+                                                 bias=bias))
+
+                self.gc_filters.append(nn.Conv1d(in_channels=dilation_channels,
+                                                 out_channels=skip_channels,
+                                                 kernel_size=1,
+                                                 bias=bias))
+
                 receptive_field += additional_scope
                 additional_scope *= 2
                 init_dilation = new_dilation
@@ -142,11 +164,14 @@ class WaveNetModel(nn.Module):
             (dilation, init_dilation) = self.dilations[i]
 
             residual = dilation_func(x, dilation, init_dilation, i)
-
+            # residual shape: [16, 32, 3085]
             # dilated convolution
             filter = self.filter_convs[i](residual)
+            # filter shape: [16, 32, 3084]
             filter = torch.tanh(filter)
             gate = self.gate_convs[i](residual)
+            # gate shape: [16, 32, 3084]. The 2084 is the temporal dimension. The 32 is the feature space.
+            # It starts with 256 because it is the input in one-hot 16 is bs
             gate = torch.sigmoid(gate)
             x = filter * gate
 
@@ -176,7 +201,7 @@ class WaveNetModel(nn.Module):
 
     def queue_dilate(self, input, dilation, init_dilation, i):
         queue = self.dilated_queues[i]
-        queue.enqueue(input.item())
+        queue.enqueue(input.view(-1))
         x = queue.dequeue(num_deq=self.kernel_size,
                           dilation=dilation)
         x = x.unsqueeze(0)
@@ -245,6 +270,7 @@ class WaveNetModel(nn.Module):
         with torch.no_grad():
             if first_samples is None:
                 first_samples = torch.LongTensor(1).zero_() + (self.classes // 2)
+                first_samples = first_samples.to(self.device)
 
             # reset queues
             for queue in self.dilated_queues:
@@ -253,15 +279,15 @@ class WaveNetModel(nn.Module):
             num_given_samples = first_samples.size(0)
             total_samples = num_given_samples + num_samples
 
-            input = torch.FloatTensor(1, self.classes, 1).zero_()
-            input = input.scatter_(1, first_samples[0:1].view(1, -1, 1), 1.)
+            input = torch.FloatTensor(1, self.classes, 1).zero_().to('cuda')
+            input = input.scatter_(1, first_samples[0:1].view(1, -1, 1).to('cuda'), 1.)
 
             # fill queues with given samples
             for i in range(num_given_samples - 1):
                 x = self.wavenet(input,
                                  dilation_func=self.queue_dilate)
                 input.zero_()
-                input = input.scatter_(1, first_samples[i + 1:i + 2].view(1, -1, 1), 1.).view(1, self.classes, 1)
+                input = input.scatter_(1, first_samples[i + 1:i + 2].view(1, -1, 1).to('cuda'), 1.).view(1, self.classes, 1)
 
                 # progress feedback
                 if i % progress_interval == 0:
@@ -277,7 +303,7 @@ class WaveNetModel(nn.Module):
                 x = self.wavenet(input,
                                  dilation_func=self.queue_dilate).squeeze()
 
-                x -= regularizer
+                x -= regularizer.to('cuda').float()
 
                 if temperature > 0:
                     # sample from softmax distribution
@@ -299,11 +325,11 @@ class WaveNetModel(nn.Module):
                 # set new input
                 x = torch.from_numpy(x).type(torch.LongTensor)
                 input.zero_()
-                input = input.scatter_(1, x.view(1, -1, 1), 1.).view(1, self.classes, 1)
+                input = input.scatter_(1, x.view(1, -1, 1).to('cuda'), 1.).view(1, self.classes, 1)
 
                 if (i+1) == 100:
                     toc = time.time()
-                    print("one generating step does take approximately " + str((toc - tic) * 0.01) + " seconds)")
+                    print("one generating step does take approximately " + str((toc - tic) * 0.01) + " seconds")
 
                 # progress feedback
                 if (i + num_given_samples) % progress_interval == 0:
@@ -313,7 +339,6 @@ class WaveNetModel(nn.Module):
         self.train()
         mu_gen = mu_law_expansion(generated, self.classes)
         return mu_gen
-
 
     def parameter_count(self):
         par = list(self.parameters())
@@ -330,6 +355,8 @@ class WaveNetModel(nn.Module):
 def load_latest_model_from(location, use_cuda=True):
     files = [location + "/" + f for f in os.listdir(location)]
     newest_file = max(files, key=os.path.getctime)
+    from datetime import datetime
+    print(datetime.fromtimestamp(os.path.getctime(newest_file)).strftime('%Y-%m-%d %H:%M:%S'))
     print("load model " + newest_file)
 
     if use_cuda:

@@ -38,20 +38,22 @@ class Logger:
 
     def log_loss(self, current_step):
         avg_loss = self.accumulated_loss / self.log_interval
-        print("loss at step " + str(current_step) + ": " + str(avg_loss))
+        print("loss at step " + str(current_step) + ": " + str(avg_loss), flush=True)
 
     def validate(self, current_step):
         avg_loss, avg_accuracy = self.trainer.validate()
-        print("validation loss: " + str(avg_loss))
-        print("validation accuracy: " + str(avg_accuracy * 100) + "%")
+        print("validation loss: " + str(avg_loss), flush=True)
+        print("validation accuracy: " + str(avg_accuracy * 100) + "%", flush=True)
 
     def generate(self, current_step):
         if self.generate_function is None:
             return
+        # self.generate_function(current_step)
 
         if self.generate_thread.is_alive():
-            print("Last generate is still running, skipping this one")
+            print("Last generate is still running, skipping this one", flush=True)
         else:
+            print("Start generation", flush=True)
             self.generate_thread = threading.Thread(target=self.generate_function,
                                                     args=[current_step])
             self.generate_thread.daemon = True
@@ -74,6 +76,7 @@ class TensorboardLogger(Logger):
         # loss
         avg_loss = self.accumulated_loss / self.log_interval
         self.scalar_summary('loss', avg_loss, current_step)
+        print("loss at step " + str(current_step) + ": " + str(avg_loss), flush=True)
 
         # parameter histograms
         for tag, value, in self.trainer.model.named_parameters():
@@ -86,6 +89,8 @@ class TensorboardLogger(Logger):
         avg_loss, avg_accuracy = self.trainer.validate()
         self.scalar_summary('validation loss', avg_loss, current_step)
         self.scalar_summary('validation accuracy', avg_accuracy, current_step)
+        print("validation loss: " + str(avg_loss), flush=True)
+        print("validation accuracy: " + str(avg_accuracy * 100) + "%", flush=True)
 
     def log_audio(self, step):
         samples = self.generate_function()

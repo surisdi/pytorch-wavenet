@@ -14,6 +14,7 @@ class WavenetDataset(torch.utils.data.Dataset):
                  dataset_file,
                  item_length,
                  target_length,
+                 division,
                  file_location=None,
                  classes=256,
                  sampling_rate=16000,
@@ -33,6 +34,7 @@ class WavenetDataset(torch.utils.data.Dataset):
         self._test_stride = test_stride
         self.target_length = target_length
         self.classes = classes
+        self.division = division
 
         if not os.path.isfile(dataset_file):
             assert file_location is not None, "no location for dataset files specified"
@@ -66,13 +68,16 @@ class WavenetDataset(torch.utils.data.Dataset):
         processed_files = []
         for i, file in enumerate(files):
             print("  processed " + str(i) + " of " + str(len(files)) + " files")
-            file_data, _ = lr.load(path=file,
-                                   sr=self.sampling_rate,
-                                   mono=self.mono)
-            if self.normalize:
-                file_data = lr.util.normalize(file_data)
-            quantized_data = quantize_data(file_data, self.classes).astype(self.dtype)
-            processed_files.append(quantized_data)
+            try:
+                file_data, _ = lr.load(path=file,
+                                       sr=self.sampling_rate,
+                                       mono=self.mono)
+                if self.normalize:
+                    file_data = lr.util.normalize(file_data)
+                quantized_data = quantize_data(file_data, self.classes).astype(self.dtype)
+                processed_files.append(quantized_data)
+            except Exception as e:
+                print(f'Exception in {file}')
 
         np.savez(self.dataset_file, *processed_files)
 

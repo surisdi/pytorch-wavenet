@@ -32,7 +32,7 @@ class TestWavenetDataset(TestCase):
                                                  batch_size=32,
                                                  shuffle=True,
                                                  num_workers=8)
-        dataloader_iter = iter(dataloader)
+        dataloader_iter = iter(dataloader['test'])
         num_batches = 10
 
         def calc_batches(num=1):
